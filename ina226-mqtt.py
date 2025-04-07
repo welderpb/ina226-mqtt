@@ -8,7 +8,8 @@ import paho.mqtt.publish as publish
 
 # Config from environment (see Dockerfile)
 BUSNUM    = int(os.getenv('BUSNUM', '1'))
-MAXEXAMPS = int(os.getenv('MAX_EXPECTED_AMPS', '1')) 
+MAXEXAMPS = int(os.getenv('MAX_EXPECTED_AMPS', '10'))
+SHUNTOHMS = int(os.getenv('SHUNT_OHMS', '0.002'))
 
 MQTT_SERVICE_HOST = os.getenv('MQTT_SERVICE_HOST', 'mosquitto.local')
 MQTT_SERVICE_PORT = int(os.getenv('MQTT_SERVICE_PORT', 1883))
@@ -65,7 +66,7 @@ if __name__ == "__main__":
                 (f"homeassistant/sensor/INA226/{HA_NAME}_current/config", cur_config % {"HA_NAME": HA_NAME})]
         MQTT_SERVICE_TOPIC = f"INA226/{HA_NAME}"
 
-    ina = INA226(busnum=BUSNUM, max_expected_amps=MAXEXAMPS, log_level=logging.INFO)
+    ina = INA226(busnum=BUSNUM, max_expected_amps=MAXEXAMPS, shunt_ohms=SHUNTOHMS, log_level=logging.INFO)
     ina.configure()
     ina.set_low_battery(5)
     sleep(3)
