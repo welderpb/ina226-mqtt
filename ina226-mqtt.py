@@ -9,7 +9,7 @@ import paho.mqtt.publish as publish
 # Config from environment (see Dockerfile)
 BUSNUM    = int(os.getenv('BUSNUM', '1'))
 MAXEXAMPS = int(os.getenv('MAX_EXPECTED_AMPS', '10'))
-SHUNTOHMS = os.getenv('SHUNT_OHMS', '0.002')
+SHUNTOHMS = float(os.getenv('SHUNT_OHMS', '0.002'))
 
 MQTT_SERVICE_HOST = os.getenv('MQTT_SERVICE_HOST', 'mosquitto.local')
 MQTT_SERVICE_PORT = int(os.getenv('MQTT_SERVICE_PORT', 1883))
