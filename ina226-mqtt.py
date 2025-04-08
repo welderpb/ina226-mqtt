@@ -6,6 +6,8 @@ import os
 
 import paho.mqtt.publish as publish
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)8s %(message)s')
+
 # Config from environment (see Dockerfile)
 BUSNUM    = int(os.getenv('BUSNUM', '1'))
 MAXEXAMPS = int(os.getenv('MAX_EXPECTED_AMPS', '10'))
@@ -18,6 +20,8 @@ MQTT_SERVICE_PASSWORD = os.getenv('MQTT_SERVICE_PASSWORD', None)
 MQTT_SERVICE_TOPIC = os.getenv('MQTT_SERVICE_TOPIC', 'home/livingroom')
 MQTT_CLIENT_ID = os.getenv('MQTT_CLIENT_ID', os.getenv('HOSTNAME'))
 HA_NAME = os.getenv('HA_NAME', None)
+
+logger = logging.getLogger(MQTT_CLIENT_ID)
 
 def read():
     print("Bus Voltage    : %.3f V" % ina.voltage())
@@ -60,10 +64,25 @@ if __name__ == "__main__":
              "name": "%(HA_NAME)s"
           }
         }'''
+        pow_config = '''{
+          "state_topic": "INA226/%(HA_NAME)s/power",
+          "icon": "mdi:lightning-bolt",
+          "name": "%(HA_NAME)s Power",
+          "unique_id": "ina226_%(HA_NAME)s_power",
+          "unit_of_measurement": "mW",
+          "device": {
+             "identifiers": ["%(HA_NAME)s"],
+             "manufacturer": "Texas Instruments",
+             "model": "INA226",
+             "name": "%(HA_NAME)s"
+          }
+        }'''
+
 
         # Prepare sensors config to be published on MQTT
         cfgs = [(f"homeassistant/sensor/INA226/{HA_NAME}_voltage/config", volt_config % {"HA_NAME": HA_NAME}),
-                (f"homeassistant/sensor/INA226/{HA_NAME}_current/config", cur_config % {"HA_NAME": HA_NAME})]
+                (f"homeassistant/sensor/INA226/{HA_NAME}_current/config", cur_config % {"HA_NAME": HA_NAME}),
+                (f"homeassistant/sensor/INA226/{HA_NAME}_power/config", pow_config % {"HA_NAME": HA_NAME})]
         MQTT_SERVICE_TOPIC = f"INA226/{HA_NAME}"
 
     ina = INA226(busnum=BUSNUM, max_expected_amps=MAXEXAMPS, shunt_ohms=SHUNTOHMS, log_level=logging.INFO)
@@ -103,7 +122,7 @@ if __name__ == "__main__":
                 read()
                 try:
                     # Prepare messages to be published on MQTT
-                    msgs = [(f"{MQTT_SERVICE_TOPIC}/voltage", ina.voltage()), (f"{MQTT_SERVICE_TOPIC}/current", ina.current())]
+                    msgs = [(f"{MQTT_SERVICE_TOPIC}/voltage", ina.voltage()), (f"{MQTT_SERVICE_TOPIC}/current", ina.current()), (f"{MQTT_SERVICE_TOPIC}/power", ina.power())]
 
                     # Publish messages on given MQTT broker
                     logger.info("Sending sensor config.")
