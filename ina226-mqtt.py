@@ -3,6 +3,7 @@ import logging
 from ina226 import INA226
 from time import sleep
 import os
+import signal
 
 import paho.mqtt.publish as publish
 
@@ -23,15 +24,28 @@ LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 logging.basicConfig(level=LOGLEVEL, format='%(asctime)s [%(name)s] %(levelname)8s %(message)s')
 logger = logging.getLogger(MQTT_CLIENT_ID)
 
+
+class GracefulKiller:
+    def __init__(self):
+        self.kill_now = False
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self, signum, frame):
+        logging.warning('gracefully exitting')
+        self.kill_now = True
+
 def read():
-    print("Bus Voltage    : %.3f V" % ina.voltage())
-    print("Bus Current    : %.3f mA" % ina.current())
-    print("Supply Voltage : %.3f V" % ina.supply_voltage())
-    print("Shunt voltage  : %.3f mV" % ina.shunt_voltage())
-    print("Power          : %.3f mW" % ina.power())
+    logger.debug("Bus Voltage    : %.3f V" % ina.voltage())
+    logger.debug("Bus Current    : %.3f mA" % ina.current())
+    logger.debug("Supply Voltage : %.3f V" % ina.supply_voltage())
+    logger.debug("Shunt voltage  : %.3f mV" % ina.shunt_voltage())
+    logger.debug("Power          : %.3f mW" % ina.power())
 
 
 if __name__ == "__main__":
+    g = GracefulKiller()
+
     MQTT_SERVICE_AUTH = None
 
     if MQTT_SERVICE_USER is not None:
@@ -89,49 +103,31 @@ if __name__ == "__main__":
     ina.configure()
     ina.set_low_battery(5)
     sleep(3)
-    print("===================================================Begin to read")
+    logger.info("Begin to read..")
     read()
     sleep(2)
-    '''
-    print("===================================================Begin to reset")
-    ina.reset()
-    sleep(5)
-    ina.configure()
-    ina.set_low_battery(3)
-    sleep(5)
-    print("===================================================Begin to sleep")
-    ina.sleep()
-    sleep(2)
-    print("===================================================Begin to wake")
-    ina.wake()
-    sleep(0.2)
-    print("===================================================Read again")
-    read()
-    sleep(5)
-    print("===================================================Trigger test")
-    '''
     ina.wake(3)
     sleep(0.2)
-    while True:
+    while not g.kill_now:
         ina.wake(3)
         sleep(3)
-        while 1:
-            if ina.is_conversion_ready():
-                sleep(3)
-                print("===================================================Conversion ready")
-                read()
-                try:
-                    # Prepare messages to be published on MQTT
-                    msgs = [(f"{MQTT_SERVICE_TOPIC}/voltage", ina.voltage()), (f"{MQTT_SERVICE_TOPIC}/current", ina.current()), (f"{MQTT_SERVICE_TOPIC}/power", ina.power())]
+        while not ina.is_conversion_ready():
+            sleep(1)
 
-                    # Publish messages on given MQTT broker
-                    logger.info("Sending sensor config.")
-                    publish.multiple(cfgs, hostname=MQTT_SERVICE_HOST, port=MQTT_SERVICE_PORT, client_id=MQTT_CLIENT_ID, auth=MQTT_SERVICE_AUTH)
-                    logger.info("Sending sensor data.")
-                    publish.multiple(msgs, hostname=MQTT_SERVICE_HOST, port=MQTT_SERVICE_PORT, client_id=MQTT_CLIENT_ID, auth=MQTT_SERVICE_AUTH)
-                except Exception:
-                    logger.error("An error occured publishing values to MQTT", exc_info=True)
+        sleep(2)
+        logger.info("Conversion ready")
+        read()
+        try:
+            # Prepare messages to be published on MQTT
+            msgs = [(f"{MQTT_SERVICE_TOPIC}/voltage", ina.voltage()), (f"{MQTT_SERVICE_TOPIC}/current", ina.current()), (f"{MQTT_SERVICE_TOPIC}/power", ina.power())]
 
-                break
+            # Publish messages on given MQTT broker
+            logger.info("Sending sensor config.")
+            publish.multiple(cfgs, hostname=MQTT_SERVICE_HOST, port=MQTT_SERVICE_PORT, client_id=MQTT_CLIENT_ID, auth=MQTT_SERVICE_AUTH)
+            logger.info("Sending sensor data.")
+            publish.multiple(msgs, hostname=MQTT_SERVICE_HOST, port=MQTT_SERVICE_PORT, client_id=MQTT_CLIENT_ID, auth=MQTT_SERVICE_AUTH)
+        except Exception:
+            logger.error("An error occured publishing values to MQTT", exc_info=True)
+
         sleep(1)
-        print("===================================================Trigger again")
+        logger.info("Trigger again")
