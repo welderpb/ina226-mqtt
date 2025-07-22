@@ -1,11 +1,11 @@
-FROM python:3.8-slim-buster AS builder
+FROM python:3.10-slim-bookworm AS builder
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y git
 
 RUN git clone https://github.com/e71828/pi_ina226.git
 
-FROM python:3.8-slim-buster
+FROM python:3.10-slim-bookworm
 
 WORKDIR /opt
 COPY --from=builder pi_ina226 /opt/pi_ina226
