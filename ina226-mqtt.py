@@ -6,8 +6,6 @@ import os
 
 import paho.mqtt.publish as publish
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)8s %(message)s')
-
 # Config from environment (see Dockerfile)
 BUSNUM    = int(os.getenv('BUSNUM', '1'))
 MAXEXAMPS = int(os.getenv('MAX_EXPECTED_AMPS', '10'))
@@ -21,6 +19,8 @@ MQTT_SERVICE_TOPIC = os.getenv('MQTT_SERVICE_TOPIC', 'home/livingroom')
 MQTT_CLIENT_ID = os.getenv('MQTT_CLIENT_ID', os.getenv('HOSTNAME'))
 HA_NAME = os.getenv('HA_NAME', None)
 
+LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+logging.basicConfig(level=LOGLEVEL, format='%(asctime)s [%(name)s] %(levelname)8s %(message)s')
 logger = logging.getLogger(MQTT_CLIENT_ID)
 
 def read():
